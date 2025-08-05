@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Asistente de Pedido</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            background-color: #f1f1f1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .chat-box {
+            background: #fff;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+            width: 400px;
+        }
+
+        .mensaje {
+            margin: 10px 0;
+        }
+
+        .respuesta {
+            background-color: green;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 12px;
+            display: inline-block;
+            margin-top: 5px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 6px;
+            margin-top: 4px;
+        }
+
+        button {
+            margin-top: 12px;
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="chat-box">
+        <form id="pedidoForm" method="post" action="{% url 'crear_pedido' %}">
+            {% csrf_token %}
+            <div id="conversation"></div>
+
+            <!-- Inputs ocultos -->
+            <input type="text" name="tipo" id="tipo" hidden>
+            <input type="text" name="direccion" id="direccion" hidden>
+            <input type="text" name="productos" id="productos" hidden>
+            <input type="text" name="metodo_pago" id="metodo_pago" hidden>
+            <input type="text" name="usuario" id="usuario" hidden>
+            <input type="text" name="observaciones" id="observaciones" hidden>
+
+            <button type="button" id="speakBtn">🎙️ Responder por voz</button>
+            <button type="submit" id="submitBtn" hidden>Enviar pedido</button>
+        </form>
+    </div>
+
+    <script>
+        const preguntas = [
+            { id: "usuario", texto: "¿Cuál es tu nombre?" },
+            { id: "tipo", texto: "¿El pedido es para recoger o domicilio?" },
+            { id: "direccion", texto: "¿Cuál es la dirección?" },
+            { id: "productos", texto: "¿Qué productos deseas pedir?" },
+            { id: "metodo_pago", texto: "¿Cuál es el método de pago?" },
+            
+        ];
+
+        let paso = 0;
+
+        const speak = (text) => {
+            const utter = new SpeechSynthesisUtterance(text);
+            utter.lang = "es-ES";
+            window.speechSynthesis.speak(utter);
+        };
+
+        const mostrarPregunta = () => {
+            const pregunta = preguntas[paso];
+            if (pregunta) {
+                const contenedor = document.getElementById("conversation");
+                const mensajeDiv = document.createElement("div");
+                mensajeDiv.className = "mensaje";
+                mensajeDiv.innerHTML = `<strong>${pregunta.texto}</strong>`;
+                contenedor.appendChild(mensajeDiv);
+                speak(pregunta.texto);
+            } else {
+                // mostrar botón de enviar al final
+                document.getElementById("submitBtn").hidden = false;
+                speak("Puedes revisar tus respuestas y enviar el pedido.");
+            }
+        };
+
+        const procesarRespuesta = (respuesta) => {
+            const pregunta = preguntas[paso];
+            if (pregunta) {
+                // guardar en input oculto
+                document.getElementById(pregunta.id).value = respuesta;
+
+                // mostrar respuesta como burbuja
+                const contenedor = document.getElementById("conversation");
+                const burbuja = document.createElement("div");
+                burbuja.className = "respuesta";
+                burbuja.textContent = respuesta;
+                contenedor.appendChild(burbuja);
+
+                paso++;
+                setTimeout(mostrarPregunta, 800);
+            }
+        };
+
+        const reconocimientoVoz = () => {
+            const recog = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+            recog.lang = "es-ES";
+            recog.start();
+            recog.onresult = (event) => {
+                const respuesta = event.results[0][0].transcript;
+                procesarRespuesta(respuesta);
+            };
+        };
+
+        // Activar botón de voz
+        document.getElementById("speakBtn").onclick = () => {
+            reconocimientoVoz();
+        };
+
+        // Permitir respuestas por teclado con ENTER
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                const texto = prompt("Escribe tu respuesta:");
+                if (texto) procesarRespuesta(texto);
+            }
+        });
+
+        // Comenzar preguntas
+        window.onload = () => {
+            mostrarPregunta();
+        };
+    </script>
+</body>
+
+</html>
